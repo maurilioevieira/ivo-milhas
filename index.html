@@ -216,20 +216,72 @@
 
   let pin = localStorage.getItem('ivoMilhasPin') || '';
   let programasCache = [];
+  const INATIVIDADE_LIMITE_MS = 20 * 60 * 1000; // 20 minutos sem interação = sessão encerrada
+  let timerInatividade;
 
   // ---------- PIN ----------
+  // O PIN nunca é aceito só por estar salvo no localStorage: toda entrada
+  // (na digitação e ao reabrir a página) é confirmada contra o servidor via
+  // 'ping'. Isso evita o cenário de trocar o PIN na planilha e o app antigo
+  // continuar "logado" com um PIN que já não vale mais.
+  async function tentarEntrar(pinDigitado){
+    const anterior = pin;
+    pin = pinDigitado;
+    const erroBox = document.getElementById('erroPin');
+    try{
+      await apiPost('ping', {});
+      localStorage.setItem('ivoMilhasPin', pin);
+      document.getElementById('telaPin').style.display = 'none';
+      erroBox.textContent = '';
+      iniciar();
+      resetarTimerInatividade();
+    }catch(err){
+      pin = anterior;
+      erroBox.textContent = 'PIN inválido.';
+    }
+  }
+
   function validarPin(){
     const valor = document.getElementById('inputPin').value.trim();
-    if(!valor){ return; }
-    pin = valor;
-    localStorage.setItem('ivoMilhasPin', pin);
-    document.getElementById('telaPin').style.display = 'none';
-    iniciar();
+    if(!valor) return;
+    tentarEntrar(valor);
   }
-  if(pin){
-    document.getElementById('telaPin').style.display = 'none';
-    iniciar();
+
+  function encerrarSessao(mensagem){
+    pin = '';
+    localStorage.removeItem('ivoMilhasPin');
+    clearTimeout(timerInatividade);
+    document.getElementById('telaPin').style.display = 'flex';
+    document.getElementById('inputPin').value = '';
+    document.getElementById('erroPin').textContent = mensagem || '';
   }
+
+  function resetarTimerInatividade(){
+    clearTimeout(timerInatividade);
+    timerInatividade = setTimeout(function(){
+      encerrarSessao('Sessão encerrada por inatividade. Faça login novamente.');
+    }, INATIVIDADE_LIMITE_MS);
+  }
+  ['click', 'keydown', 'touchstart', 'mousemove'].forEach(function(evento){
+    document.addEventListener(evento, function(){
+      if(pin) resetarTimerInatividade();
+    });
+  });
+
+  // Ao abrir a página com um PIN salvo, confirma com o servidor antes de
+  // liberar a tela — se o PIN foi trocado nesse meio tempo, volta pro login
+  // com uma mensagem clara em vez de deixar o usuário travado em erros soltos.
+  (async function(){
+    if(!pin) return;
+    try{
+      await apiPost('ping', {});
+      document.getElementById('telaPin').style.display = 'none';
+      iniciar();
+      resetarTimerInatividade();
+    }catch(err){
+      encerrarSessao('O PIN foi alterado. Faça login novamente.');
+    }
+  })();
 
   // ---------- NAVEGAÇÃO ----------
   function mudarAba(id, botao){
