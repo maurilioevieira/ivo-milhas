@@ -146,6 +146,28 @@
   .item-extrato .detalhes{font-size:var(--fs-xs);color:var(--ink-soft);margin-top:2px;}
   .item-extrato b{font-size:var(--fs-md);}
 
+  /* ===== LINHA DE PROGRAMA (aba Programas) ===== */
+  .linha-programa{
+    background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  .input-nome-programa{
+    flex:1;min-width:120px;border:1px solid transparent;background:transparent;
+    font-size:var(--fs-base);color:var(--ink);padding:8px;border-radius:6px;
+  }
+  .input-nome-programa:hover, .input-nome-programa:focus{border-color:var(--line);outline:none;}
+  .input-cor-programa{width:38px;height:38px;padding:2px;border:1px solid var(--line);border-radius:8px;cursor:pointer;}
+  .btn-status{
+    border:none;border-radius:20px;padding:6px 14px;font-size:var(--fs-xs);font-weight:600;cursor:pointer;
+  }
+  .status-ativo{background:#DFF3EC;color:var(--emerald);}
+  .status-inativo{background:#EDEFF2;color:var(--ink-soft);}
+  .btn-remover{
+    border:1px solid #F0C4C0;color:var(--red);background:#fff;border-radius:6px;
+    padding:6px 12px;font-size:var(--fs-xs);cursor:pointer;
+  }
+  .btn-remover:hover{background:#FCEBEB;}
+
   /* ===== TELA DE PIN ===== */
   #telaPin{
     position:fixed;inset:0;background:var(--slate);display:flex;align-items:center;justify-content:center;
@@ -228,6 +250,8 @@
     <form onsubmit="cadastrarPrograma(event)" style="margin-bottom:20px;">
       <label>Nome do novo programa</label>
       <input type="text" id="novoPrograma" placeholder="Ex: LATAM Pass" required>
+      <label>Cor de destaque</label>
+      <input type="color" id="novoProgramaCor" value="#1E293B" style="height:44px;padding:4px;cursor:pointer;">
       <button type="submit">Adicionar programa</button>
       <p id="msgPrograma"></p>
     </form>
@@ -351,10 +375,9 @@
 
   async function carregarProgramas(){
     programasCache = await apiGet('getProgramas');
-    const selects = [document.getElementById('fProgramaId'), document.getElementById('eProgramaId')];
-    selects.forEach(sel => {
-      sel.innerHTML = programasCache.map(p => `<option value="${p.ID}">${p.Nome}</option>`).join('');
-    });
+    const ativos = programasCache.filter(p => p.Status !== 'inativo');
+    document.getElementById('fProgramaId').innerHTML = ativos.map(p => `<option value="${p.ID}">${p.Nome}</option>`).join('');
+    document.getElementById('eProgramaId').innerHTML = programasCache.map(p => `<option value="${p.ID}">${p.Nome}${p.Status === 'inativo' ? ' (inativo)' : ''}</option>`).join('');
     renderListaProgramas();
   }
 
@@ -364,18 +387,75 @@
       box.innerHTML = '<p class="vazio">Nenhum programa cadastrado ainda.</p>';
       return;
     }
-    box.innerHTML = programasCache.map(p => `
-      <div class="item-extrato"><span>${p.Nome}</span></div>
-    `).join('');
+    box.innerHTML = programasCache.map(p => {
+      const ativo = p.Status !== 'inativo';
+      return `
+      <div class="linha-programa">
+        <input type="text" class="input-nome-programa" value="${p.Nome}"
+          onchange="renomear('${p.ID}', this.value)" title="Clique para corrigir o nome">
+        <input type="color" value="${p.Cor || '#1E293B'}" title="Cor de destaque"
+          class="input-cor-programa" onchange="atualizarCor('${p.ID}', this.value)">
+        <button class="btn-status ${ativo ? 'status-ativo' : 'status-inativo'}"
+          onclick="alternarStatus('${p.ID}', ${ativo})">${ativo ? 'Ativo' : 'Inativo'}</button>
+        <button class="btn-remover" onclick="confirmarRemocao('${p.ID}', '${p.Nome.replace(/'/g, "\\'")}')">Remover</button>
+      </div>`;
+    }).join('');
+  }
+
+  async function renomear(programaId, nome){
+    if(!nome.trim()) { await carregarProgramas(); return; } // não deixa salvar vazio
+    try{
+      await apiPost('renomearPrograma', { programaId, nome });
+      await carregarProgramas();
+      await carregarDashboard();
+    }catch(err){
+      alert(err.message);
+      await carregarProgramas();
+    }
+  }
+
+  async function alternarStatus(programaId, estaAtivo){
+    try{
+      await apiPost('definirStatusPrograma', { programaId, ativo: !estaAtivo });
+      await carregarProgramas();
+      await carregarDashboard();
+    }catch(err){
+      alert(err.message);
+    }
+  }
+
+  async function confirmarRemocao(programaId, nome){
+    if(!confirm(`Remover "${nome}"? Essa ação só é permitida se o programa nunca teve compra ou venda registrada.`)) return;
+    try{
+      await apiPost('removerPrograma', { programaId });
+      await carregarProgramas();
+      await carregarDashboard();
+    }catch(err){
+      if(confirm(err.message + '\n\nDeseja desativá-lo agora em vez de excluir?')){
+        await alternarStatus(programaId, true);
+      }
+    }
+  }
+
+  async function atualizarCor(programaId, cor){
+    try{
+      await apiPost('atualizarCorPrograma', { programaId, cor });
+      await carregarProgramas();
+      await carregarDashboard();
+    }catch(err){
+      alert(err.message);
+    }
   }
 
   async function cadastrarPrograma(ev){
     ev.preventDefault();
     const nome = document.getElementById('novoPrograma').value.trim();
+    const cor = document.getElementById('novoProgramaCor').value;
     const msg = document.getElementById('msgPrograma');
     try{
-      await apiPost('addPrograma', { nome });
+      await apiPost('addPrograma', { nome, cor });
       document.getElementById('novoPrograma').value = '';
+      document.getElementById('novoProgramaCor').value = '#1E293B';
       msg.textContent = 'Programa adicionado.';
       msg.className = 'sucesso';
       await carregarProgramas();
@@ -402,8 +482,8 @@
     document.getElementById('saldoTotal').textContent = `Saldo total: ${formatarNumero(saldoTotal)} pts`;
 
     box.innerHTML = dados.map(p => `
-      <div class="card-programa">
-        <h3>${p.Nome}</h3>
+      <div class="card-programa" style="border-left:4px solid ${p.Cor || 'var(--slate)'};">
+        <h3><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.Cor || 'var(--slate)'};margin-right:8px;vertical-align:middle;"></span>${p.Nome}${p.Status === 'inativo' ? ' <span style="font-size:var(--fs-2xs);color:var(--ink-soft);font-weight:400;">(inativo)</span>' : ''}</h3>
         <div class="linha"><span>Saldo atual</span><b>${formatarNumero(p.SaldoAtual)} pts</b></div>
         <div class="linha"><span>CPM médio</span><b>${formatarMoeda(p.CPMMedio)}</b></div>
         <div class="linha"><span>Investido</span><b>${formatarMoeda(p.TotalInvestido)}</b></div>
