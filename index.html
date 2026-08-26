@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ivo Milhas</title>
+<style>
+  :root{
+    --slate:#1E293B;
+    --slate-2:#29394F;
+    --emerald:#0F9D74;
+    --amber:#D97706;
+    --red:#C0392B;
+    --ink:#1B222C;
+    --ink-soft:#5A6472;
+    --line:#E2E6EA;
+    --bg:#F4F6F8;
+    --card:#FFFFFF;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    padding-bottom:72px;
+  }
+
+  /* ===== TOPO ===== */
+  header{
+    background:var(--slate);
+    color:#fff;
+    padding:16px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  header h1{font-size:18px;font-weight:600;}
+  #saldoTotal{color:var(--amber);font-size:14px;font-weight:600;}
+
+  /* ===== NAVEGAÇÃO POR ABAS ===== */
+  nav{
+    display:flex;
+    background:#fff;
+    border-bottom:1px solid var(--line);
+    position:sticky;
+    top:0;
+    z-index:10;
+  }
+  nav button{
+    flex:1;
+    padding:14px 6px;
+    background:none;
+    border:none;
+    font-size:13px;
+    color:var(--ink-soft);
+    border-bottom:3px solid transparent;
+    cursor:pointer;
+  }
+  nav button.ativo{color:var(--slate);border-bottom-color:var(--emerald);font-weight:600;}
+
+  main{padding:16px;max-width:900px;margin:0 auto;}
+  section{display:none;}
+  section.ativa{display:block;}
+
+  /* ===== CARDS DE DASHBOARD ===== */
+  .grid-cards{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    margin-bottom:20px;
+  }
+  @media(min-width:640px){
+    .grid-cards{grid-template-columns:repeat(2,1fr);}
+  }
+  @media(min-width:960px){
+    .grid-cards{grid-template-columns:repeat(3,1fr);}
+  }
+  .card-programa{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:16px;
+    border:1px solid var(--line);
+  }
+  .card-programa h3{font-size:15px;color:var(--slate);margin-bottom:10px;}
+  .card-programa .linha{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:var(--ink-soft);}
+  .card-programa .linha b{color:var(--ink);font-weight:600;}
+  .lucro-pos{color:var(--emerald)!important;}
+  .lucro-neg{color:var(--red)!important;}
+
+  /* ===== FORMULÁRIOS ===== */
+  .toggle-tipo{display:flex;gap:8px;margin-bottom:16px;}
+  .toggle-tipo button{
+    flex:1;padding:10px;border-radius:var(--radius);border:1px solid var(--line);
+    background:#fff;font-size:14px;cursor:pointer;color:var(--ink-soft);
+  }
+  .toggle-tipo button.ativo{background:var(--slate);color:#fff;border-color:var(--slate);}
+
+  form{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;}
+  form label{display:block;font-size:13px;color:var(--ink-soft);margin:10px 0 4px;}
+  form input, form select{
+    width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;color:var(--ink);
+  }
+  form button[type="submit"]{
+    margin-top:16px;width:100%;padding:12px;border:none;border-radius:8px;
+    background:var(--emerald);color:#fff;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  #msgForm{margin-top:10px;font-size:13px;}
+  #msgForm.erro{color:var(--red);}
+  #msgForm.sucesso{color:var(--emerald);}
+
+  /* ===== EXTRATO ===== */
+  .item-extrato{
+    background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;
+  }
+  .item-extrato .tipo-tag{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;}
+  .tag-compra{background:#FDECD8;color:var(--amber);}
+  .tag-venda{background:#DFF3EC;color:var(--emerald);}
+  .item-extrato .detalhes{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  /* ===== TELA DE PIN ===== */
+  #telaPin{
+    position:fixed;inset:0;background:var(--slate);display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;z-index:100;padding:20px;
+  }
+  #telaPin h2{color:#fff;font-size:18px;}
+  #telaPin input{padding:12px;border-radius:8px;border:none;font-size:16px;width:220px;text-align:center;letter-spacing:4px;}
+  #telaPin button{padding:12px 24px;border-radius:8px;border:none;background:var(--emerald);color:#fff;font-weight:600;cursor:pointer;}
+  #telaPin p{color:#F09595;font-size:13px;min-height:16px;}
+
+  .vazio{color:var(--ink-soft);font-size:13px;text-align:center;padding:24px 0;}
+  .carregando{text-align:center;color:var(--ink-soft);font-size:13px;padding:24px 0;}
+</style>
+</head>
+<body>
+
+<div id="telaPin">
+  <h2>Ivo Milhas</h2>
+  <input type="password" id="inputPin" placeholder="PIN" inputmode="numeric">
+  <button onclick="validarPin()">Entrar</button>
+  <p id="erroPin"></p>
+</div>
+
+<header>
+  <h1>Ivo Milhas</h1>
+  <span id="saldoTotal">Saldo total: —</span>
+</header>
+
+<nav>
+  <button class="ativo" onclick="mudarAba('dashboard', this)">Dashboard</button>
+  <button onclick="mudarAba('lancar', this)">Lançar</button>
+  <button onclick="mudarAba('extrato', this)">Extrato</button>
+  <button onclick="mudarAba('programas', this)">Programas</button>
+</nav>
+
+<main>
+
+  <section id="dashboard" class="ativa">
+    <div id="gridDashboard" class="grid-cards">
+      <p class="carregando">Carregando...</p>
+    </div>
+  </section>
+
+  <section id="lancar">
+    <div class="toggle-tipo">
+      <button id="btnTipoCompra" class="ativo" onclick="mudarTipoLancamento('compra')">Registrar compra</button>
+      <button id="btnTipoVenda" onclick="mudarTipoLancamento('venda')">Registrar venda</button>
+    </div>
+
+    <form id="formLancamento" onsubmit="enviarLancamento(event)">
+      <label>Programa</label>
+      <select id="fProgramaId" required></select>
+
+      <label>Data</label>
+      <input type="date" id="fData" required>
+
+      <label>Quantidade de pontos</label>
+      <input type="number" id="fQuantidade" min="1" required>
+
+      <label id="labelValor">Valor pago (R$)</label>
+      <input type="number" id="fValor" min="0" step="0.01" required>
+
+      <div id="campoCliente" style="display:none;">
+        <label>Cliente (opcional)</label>
+        <input type="text" id="fCliente">
+      </div>
+
+      <button type="submit">Salvar</button>
+      <p id="msgForm"></p>
+    </form>
+  </section>
+
+  <section id="extrato">
+    <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px;">Programa</label>
+    <select id="eProgramaId" onchange="carregarExtrato()" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:16px;"></select>
+    <div id="listaExtrato"></div>
+  </section>
+
+  <section id="programas">
+    <form onsubmit="cadastrarPrograma(event)" style="margin-bottom:20px;">
+      <label>Nome do novo programa</label>
+      <input type="text" id="novoPrograma" placeholder="Ex: LATAM Pass" required>
+      <button type="submit">Adicionar programa</button>
+      <p id="msgPrograma"></p>
+    </form>
+    <div id="listaProgramas"></div>
+  </section>
+
+</main>
+
+<script>
+  const API_URL = 'https://script.google.com/macros/s/AKfycbx5KdIcZ0OK8RwskBTqBCXKBBlhc8TccT5D6UQMEBjC2ZVTFNr812a_5-860dh7u95E/exec';
+
+  let pin = localStorage.getItem('ivoMilhasPin') || '';
+  let programasCache = [];
+
+  // ---------- PIN ----------
+  function validarPin(){
+    const valor = document.getElementById('inputPin').value.trim();
+    if(!valor){ return; }
+    pin = valor;
+    localStorage.setItem('ivoMilhasPin', pin);
+    document.getElementById('telaPin').style.display = 'none';
+    iniciar();
+  }
+  if(pin){
+    document.getElementById('telaPin').style.display = 'none';
+    iniciar();
+  }
+
+  // ---------- NAVEGAÇÃO ----------
+  function mudarAba(id, botao){
+    document.querySelectorAll('section').forEach(s => s.classList.remove('ativa'));
+    document.getElementById(id).classList.add('ativa');
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('ativo'));
+    botao.classList.add('ativo');
+    if(id === 'extrato') carregarExtrato();
+  }
+
+  // ---------- CHAMADAS À API ----------
+  // GET: leitura simples via querystring, sem PIN.
+  async function apiGet(action, params){
+    params = params || {};
+    const qs = new URLSearchParams({ action, ...params });
+    const resp = await fetch(`${API_URL}?${qs.toString()}`);
+    const json = await resp.json();
+    if(!json.ok) throw new Error(json.error);
+    return json.data;
+  }
+
+  // POST: qualquer escrita exige PIN. Content-Type é deixado como texto puro
+  // de propósito — se mandarmos "application/json" o navegador dispara um
+  // preflight (OPTIONS) que o Apps Script não responde, e a chamada falha
+  // silenciosamente em produção mesmo funcionando local.
+  async function apiPost(action, dados){
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action, pin, ...dados })
+    });
+    const json = await resp.json();
+    if(!json.ok) throw new Error(json.error);
+    return json.data;
+  }
+
+  // ---------- INICIALIZAÇÃO ----------
+  async function iniciar(){
+    document.getElementById('fData').valueAsDate = new Date();
+    await carregarProgramas();
+    await carregarDashboard();
+  }
+
+  async function carregarProgramas(){
+    programasCache = await apiGet('getProgramas');
+    const selects = [document.getElementById('fProgramaId'), document.getElementById('eProgramaId')];
+    selects.forEach(sel => {
+      sel.innerHTML = programasCache.map(p => `<option value="${p.ID}">${p.Nome}</option>`).join('');
+    });
+    renderListaProgramas();
+  }
+
+  function renderListaProgramas(){
+    const box = document.getElementById('listaProgramas');
+    if(programasCache.length === 0){
+      box.innerHTML = '<p class="vazio">Nenhum programa cadastrado ainda.</p>';
+      return;
+    }
+    box.innerHTML = programasCache.map(p => `
+      <div class="item-extrato"><span>${p.Nome}</span></div>
+    `).join('');
+  }
+
+  async function cadastrarPrograma(ev){
+    ev.preventDefault();
+    const nome = document.getElementById('novoPrograma').value.trim();
+    const msg = document.getElementById('msgPrograma');
+    try{
+      await apiPost('addPrograma', { nome });
+      document.getElementById('novoPrograma').value = '';
+      msg.textContent = 'Programa adicionado.';
+      msg.className = 'sucesso';
+      await carregarProgramas();
+      await carregarDashboard();
+    }catch(err){
+      msg.textContent = err.message;
+      msg.className = 'erro';
+    }
+  }
+
+  // ---------- DASHBOARD ----------
+  async function carregarDashboard(){
+    const box = document.getElementById('gridDashboard');
+    box.innerHTML = '<p class="carregando">Carregando...</p>';
+    const dados = await apiGet('getDashboard');
+
+    if(dados.length === 0){
+      box.innerHTML = '<p class="vazio">Cadastre um programa na aba Programas para começar.</p>';
+      document.getElementById('saldoTotal').textContent = 'Saldo total: 0 pts';
+      return;
+    }
+
+    const saldoTotal = dados.reduce((s, p) => s + p.SaldoAtual, 0);
+    document.getElementById('saldoTotal').textContent = `Saldo total: ${formatarNumero(saldoTotal)} pts`;
+
+    box.innerHTML = dados.map(p => `
+      <div class="card-programa">
+        <h3>${p.Nome}</h3>
+        <div class="linha"><span>Saldo atual</span><b>${formatarNumero(p.SaldoAtual)} pts</b></div>
+        <div class="linha"><span>CPM médio</span><b>${formatarMoeda(p.CPMMedio)}</b></div>
+        <div class="linha"><span>Investido</span><b>${formatarMoeda(p.TotalInvestido)}</b></div>
+        <div class="linha"><span>Recebido</span><b>${formatarMoeda(p.TotalRecebido)}</b></div>
+        <div class="linha"><span>Lucro acumulado</span><b class="${p.LucroAcumulado >= 0 ? 'lucro-pos' : 'lucro-neg'}">${formatarMoeda(p.LucroAcumulado)}</b></div>
+      </div>
+    `).join('');
+  }
+
+  // ---------- LANÇAMENTO (COMPRA/VENDA) ----------
+  let tipoAtual = 'compra';
+  function mudarTipoLancamento(tipo){
+    tipoAtual = tipo;
+    document.getElementById('btnTipoCompra').classList.toggle('ativo', tipo === 'compra');
+    document.getElementById('btnTipoVenda').classList.toggle('ativo', tipo === 'venda');
+    document.getElementById('labelValor').textContent = tipo === 'compra' ? 'Valor pago (R$)' : 'Valor recebido (R$)';
+    document.getElementById('campoCliente').style.display = tipo === 'venda' ? 'block' : 'none';
+    document.getElementById('msgForm').textContent = '';
+  }
+
+  async function enviarLancamento(ev){
+    ev.preventDefault();
+    const msg = document.getElementById('msgForm');
+    msg.textContent = '';
+    msg.className = '';
+
+    const dados = {
+      programaId: document.getElementById('fProgramaId').value,
+      data: document.getElementById('fData').value,
+      quantidade: document.getElementById('fQuantidade').value,
+    };
+
+    try{
+      if(tipoAtual === 'compra'){
+        dados.valorPago = document.getElementById('fValor').value;
+        await apiPost('addCompra', dados);
+      }else{
+        dados.valorRecebido = document.getElementById('fValor').value;
+        dados.cliente = document.getElementById('fCliente').value;
+        await apiPost('addVenda', dados);
+      }
+      msg.textContent = tipoAtual === 'compra' ? 'Compra registrada.' : 'Venda registrada.';
+      msg.className = 'sucesso';
+      document.getElementById('fQuantidade').value = '';
+      document.getElementById('fValor').value = '';
+      document.getElementById('fCliente').value = '';
+      await carregarDashboard();
+    }catch(err){
+      msg.textContent = err.message;
+      msg.className = 'erro';
+    }
+  }
+
+  // ---------- EXTRATO ----------
+  async function carregarExtrato(){
+    const programaId = document.getElementById('eProgramaId').value;
+    const box = document.getElementById('listaExtrato');
+    if(!programaId){ box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="carregando">Carregando...</p>';
+
+    const itens = await apiGet('getExtrato', { programaId });
+    if(itens.length === 0){
+      box.innerHTML = '<p class="vazio">Nenhuma movimentação registrada ainda.</p>';
+      return;
+    }
+
+    box.innerHTML = itens.map(item => {
+      const dataFmt = new Date(item.data).toLocaleDateString('pt-BR');
+      if(item.tipo === 'compra'){
+        return `
+          <div class="item-extrato">
+            <div>
+              <span class="tipo-tag tag-compra">Compra</span>
+              <div class="detalhes">${dataFmt} · ${formatarNumero(item.quantidade)} pts</div>
+            </div>
+            <b>${formatarMoeda(item.valor)}</b>
+          </div>`;
+      }else{
+        return `
+          <div class="item-extrato">
+            <div>
+              <span class="tipo-tag tag-venda">Venda</span>
+              <div class="detalhes">${dataFmt} · ${formatarNumero(item.quantidade)} pts${item.cliente ? ' · ' + item.cliente : ''}</div>
+            </div>
+            <div style="text-align:right;">
+              <b>${formatarMoeda(item.valor)}</b>
+              <div class="detalhes ${item.lucro >= 0 ? 'lucro-pos' : 'lucro-neg'}">${item.lucro >= 0 ? '+' : ''}${formatarMoeda(item.lucro)}</div>
+            </div>
+          </div>`;
+      }
+    }).join('');
+  }
+
+  // ---------- FORMATAÇÃO ----------
+  function formatarNumero(n){ return Number(n).toLocaleString('pt-BR'); }
+  function formatarMoeda(n){ return Number(n).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
+</script>
+
+</body>
+</html>
